@@ -111,8 +111,11 @@ resource "aws_dynamodb_table" "intake" {
     type = "S"
   }
 
-  # No server_side_encryption block. Defaults to AWS-owned key.
-  # GAP-02: capstone learner expected to add this with a customer-owned key.
+  # GAP-02 | HIPAA 164.312(a)(2)(iv) — encryption at rest under a CMK you own.
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.phi.arn
+  }
 }
 
 ######################################################################
@@ -172,18 +175,28 @@ resource "aws_iam_role_policy" "lambda_inline" {
   name = "intake-data-access"
   role = aws_iam_role.lambda.id
 
+  # GAP-07 | HIPAA 164.312(a)(1) — least privilege. Scoped from dynamodb:* / s3:*
+  # to exactly the actions the handler calls, plus KMS use of the PHI CMK.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
+        Sid      = "IntakeTableWrite"
         Effect   = "Allow"
-        Action   = "dynamodb:*"
+        Action   = ["dynamodb:PutItem"]
         Resource = aws_dynamodb_table.intake.arn
       },
       {
+        Sid      = "UploadsWrite"
         Effect   = "Allow"
-        Action   = "s3:*"
-        Resource = ["${aws_s3_bucket.uploads.arn}", "${aws_s3_bucket.uploads.arn}/*"]
+        Action   = ["s3:PutObject"]
+        Resource = "${aws_s3_bucket.uploads.arn}/*"
+      },
+      {
+        Sid      = "UsePhiCmk"
+        Effect   = "Allow"
+        Action   = ["kms:GenerateDataKey", "kms:Encrypt", "kms:Decrypt"]
+        Resource = aws_kms_key.phi.arn
       }
     ]
   })
