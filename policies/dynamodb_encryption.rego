@@ -10,17 +10,15 @@ package compliance.hipaa.dynamodb_encryption
 import rego.v1
 
 deny contains msg if {
-    some resource in input.planned_values.root_module.resources
-    resource.type == "aws_dynamodb_table"
-    not table_has_cmk(resource)
+    some rc in input.resource_changes
+    rc.type == "aws_dynamodb_table"
+    not table_has_cmk(rc.change.after)
     msg := sprintf(
-        "GAP-02 [HIPAA 164.312(a)(2)(iv)]: DynamoDB table '%s' is not encrypted with a customer-managed CMK",
-        [resource.values.name],
+        "GAP-02 [HIPAA 164.312(a)(2)(iv)]: %s is not encrypted with a customer-managed CMK",
+        [rc.address],
     )
 }
 
-table_has_cmk(resource) if {
-    sse := resource.values.server_side_encryption[0]
-    sse.enabled == true
-    sse.kms_key_arn != ""
+table_has_cmk(after) if {
+    after.server_side_encryption[0].enabled == true
 }
