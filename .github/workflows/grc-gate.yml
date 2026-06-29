@@ -1,0 +1,71 @@
+name: GRC Compliance Gate
+
+# Runs on every PR (plan + policy gate) and on merge to main (apply + evidence).
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Required for OIDC: lets the workflow request a token from AWS.
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ROLE_ARN: arn:aws:iam::669413339206:role/acme-health-github-actions-ci
+
+jobs:
+  plan-and-gate:
+    name: Plan & Policy Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Setup Conftest
+        run: |
+          CONFTEST_VERSION=0.56.0
+          wget -q "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+          tar xzf "conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz"
+          sudo mv conftest /usr/local/bin/
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -input=false
+
+      - name: Terraform Plan
+        working-directory: terraform
+        run: |
+          terraform plan -out=tfplan -input=false
+          terraform show -json tfplan > plan.json
+
+      - name: Policy Gate (Conftest)
+        working-directory: terraform
+        run: |
+          conftest test plan.json \
+            --policy ../policies \
+            --namespace compliance.hipaa.encryption \
+            --namespace compliance.hipaa.dynamodb_encryption \
+            --namespace compliance.hipaa.tls_required \
+            --namespace compliance.hipaa.versioning \
+            --namespace compliance.hipaa.least_privilege
+
+      - name: Upload plan artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: terraform/plan.json
