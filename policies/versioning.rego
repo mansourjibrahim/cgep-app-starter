@@ -14,7 +14,7 @@ deny contains msg if {
     rc.type == "aws_s3_bucket_versioning"
     rc.change.after.versioning_configuration[0].status != "Enabled"
     msg := sprintf(
-        "GAP-04 [HIPAA 164.308(a)(7)]: bucket '%s' versioning is not Enabled",
-        [rc.change.after.bucket],
+        "GAP-04 [HIPAA 164.308(a)(7)]: %s versioning is not Enabled",
+        [rc.address],
     )
 }

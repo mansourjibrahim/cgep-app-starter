@@ -12,11 +12,10 @@ import rego.v1
 deny contains msg if {
     some rc in input.resource_changes
     rc.type == "aws_s3_bucket_server_side_encryption_configuration"
-    after := rc.change.after
-    algorithm := after.rule[0].apply_server_side_encryption_by_default[0].sse_algorithm
+    algorithm := rc.change.after.rule[0].apply_server_side_encryption_by_default[0].sse_algorithm
     algorithm != "aws:kms"
     msg := sprintf(
-        "GAP-01 [HIPAA 164.312(a)(2)(iv)]: bucket '%s' uses '%s', must use 'aws:kms' (customer-managed CMK)",
-        [after.bucket, algorithm],
+        "GAP-01 [HIPAA 164.312(a)(2)(iv)]: %s uses '%s', must use 'aws:kms' (customer-managed CMK)",
+        [rc.address, algorithm],
     )
 }

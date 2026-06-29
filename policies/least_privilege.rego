@@ -17,7 +17,7 @@ deny contains msg if {
     some wildcard in forbidden_wildcards
     contains(rc.change.after.policy, wildcard)
     msg := sprintf(
-        "GAP-07 [HIPAA 164.312(a)(1)]: IAM policy '%s' grants over-broad action '%s' (least-privilege violation)",
-        [rc.change.after.name, wildcard],
+        "GAP-07 [HIPAA 164.312(a)(1)]: %s grants over-broad action '%s' (least-privilege violation)",
+        [rc.address, wildcard],
     )
 }
