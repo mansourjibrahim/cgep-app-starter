@@ -3,13 +3,15 @@ import rego.v1
 
 test_tls_passes if {
     count(deny) == 0 with input as {"resource_changes": [{
+        "address": "aws_s3_bucket_policy.good",
         "type": "aws_s3_bucket_policy",
-        "change": {"after": {"bucket": "good", "policy": "{\"aws:SecureTransport\":\"false\"}"}},
+        "change": {"after": {"policy": "{\"aws:SecureTransport\":\"false\"}"}},
     }]}
 }
 test_no_tls_fails if {
     count(deny) == 1 with input as {"resource_changes": [{
+        "address": "aws_s3_bucket_policy.bad",
         "type": "aws_s3_bucket_policy",
-        "change": {"after": {"bucket": "bad", "policy": "{\"Action\":\"s3:GetObject\"}"}},
+        "change": {"after": {"policy": "{\"Action\":\"s3:GetObject\"}"}},
     }]}
 }
